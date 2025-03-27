@@ -1,68 +1,40 @@
-class Node {
-	/// value;
-	/// next;
+'use strict'
+// classic singleton yargs API, to use yargs
+// without running as a singleton do:
+// require('yargs/yargs')(process.argv.slice(2))
+const yargs = require('./yargs')
+const processArgv = require('./build/lib/process-argv')
 
-	constructor(value) {
-		this.value = value;
+Argv(processArgv.getProcessArgvWithoutBin())
 
-		// TODO: Remove this when targeting Node.js 12.
-		this.next = undefined;
-	}
+module.exports = Argv
+
+function Argv (processArgs, cwd) {
+  const argv = yargs(processArgs, cwd, require)
+  singletonify(argv)
+  return argv
 }
 
-class Queue {
-	// TODO: Use private class fields when targeting Node.js 12.
-	// #_head;
-	// #_tail;
-	// #_size;
-
-	constructor() {
-		this.clear();
-	}
-
-	enqueue(value) {
-		const node = new Node(value);
-
-		if (this._head) {
-			this._tail.next = node;
-			this._tail = node;
-		} else {
-			this._head = node;
-			this._tail = node;
-		}
-
-		this._size++;
-	}
-
-	dequeue() {
-		const current = this._head;
-		if (!current) {
-			return;
-		}
-
-		this._head = this._head.next;
-		this._size--;
-		return current.value;
-	}
-
-	clear() {
-		this._head = undefined;
-		this._tail = undefined;
-		this._size = 0;
-	}
-
-	get size() {
-		return this._size;
-	}
-
-	* [Symbol.iterator]() {
-		let current = this._head;
-
-		while (current) {
-			yield current.value;
-			current = current.next;
-		}
-	}
+/*  Hack an instance of Argv with process.argv into Argv
+    so people can do
+    require('yargs')(['--beeble=1','-z','zizzle']).argv
+    to parse a list of args and
+    require('yargs').argv
+    to get a parsed version of process.argv.
+*/
+function singletonify (inst) {
+  Object.keys(inst).forEach((key) => {
+    if (key === 'argv') {
+      Argv.__defineGetter__(key, inst.__lookupGetter__(key))
+    } else if (typeof inst[key] === 'function') {
+      Argv[key] = inst[key].bind(inst)
+    } else {
+      Argv.__defineGetter__('$0', () => {
+        return inst.$0
+      })
+      Argv.__defineGetter__('parsed', () => {
+        return inst.parsed
+      })
+    }
+  })
 }
-
-module.exports = Queue;
